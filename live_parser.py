@@ -152,7 +152,7 @@ def ue_context_release(pkt):
 
 def paging(pkt):
     print("Paging Initiated -->")
-    print("PlmnID: {0}, UeIdIndex: {1}, MCC: {2}, TAC: {3}, MMEC: {4}, S_TMSI: {5}, M_TMSI: {6}, MNC: {7}, UePagingId: {8}".format(pkt.s1ap.plmnidentity, pkt.s1ap.ueidentityindexvalue, pkt.s1ap.e212_mcc, pkt.s1ap.tac, pkt.s1ap.mmec, pkt.s1ap.s_tmsi_element, pkt.s1ap.m_tmsi, pkt.s1ap.e212_mnc, pklt.s1ap.uepagingid))
+    print("PlmnID: {0}, UeIdIndex: {1}, MCC: {2}, TAC: {3}, MMEC: {4}, S_TMSI: {5}, M_TMSI: {6}, MNC: {7}, UePagingId: {8}".format(pkt.s1ap.plmnidentity, pkt.s1ap.ueidentityindexvalue, pkt.s1ap.e212_mcc, pkt.s1ap.tac, pkt.s1ap.mmec, pkt.s1ap.s_tmsi_element, pkt.s1ap.m_tmsi, pkt.s1ap.e212_mnc, pkt.s1ap.uepagingid))
     #print(pkt.s1ap.field_names)
 
 
@@ -162,9 +162,10 @@ def ue_context_release_request(pkt):
     enb_ue = int(pkt.s1ap.enb_ue_s1ap_id)
     mme_ue = int(pkt.s1ap.mme_ue_s1ap_id)
     print("[%d: %d] UE Context Release Request" % (enb_ue, mme_ue))
-    print(pkt.s1ap.field_names)
-
-
+    if "radionetwork" in pkt.s1ap.field_names:
+        print("Cause {0}.{1}".format(pkt.s1ap.radionetwork, pkt.s1ap.cause))
+    else:
+        print(pkt.s1ap.field_names)
 
 
 
