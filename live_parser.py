@@ -13,6 +13,31 @@ s1ap_procedures = {17: "s1_setup", 12: "initial_ue_message", 11: "dl_nas", 13: "
 enb_dct = {}
 ue_dct = {}
 
+s1ap_CauseRadioNetwork_vals = {0: "unspecified", 1: "tx2relocoverall-expiry", 2: "successful-handover",
+        3: "release-due-to-eutran-generated-reason", 4: "handover-cancelled",
+        5: "partial-handover", 6: "ho-failure-in-target-EPC-eNB-or-target-system",
+        7: "ho-target-not-allowed", 8: "tS1relocoverall-expiry", 9: "tS1relocprep-expiry",
+        10: "cell-not-available", 11: "unknown-targetID",
+        12: "no-radio-resources-available-in-target-cell", 13: "unknown-mme-ue-s1ap-id",
+        14: "unknown-enb-ue-s1ap-id", 15: "unknown-pair-ue-s1ap-id",
+        16: "handover-desirable-for-radio-reason", 17: "time-critical-handover",
+        18: "resource-optimisation-handover", 19: "reduce-load-in-serving-cell",
+        20: "user-inactivity", 21: "radio-connection-with-ue-lost",
+        22: "load-balancing-tau-required", 23: "cs-fallback-triggered",
+        24: "ue-not-available-for-ps-service", 25: "radio-resources-not-available",
+        26: "failure-in-radio-interface-procedure", 27: "invalid-qos-combination",
+        28: "interrat-redirection", 29: "interaction-with-other-procedure",
+        30: "unknown-E-RAB-ID", 31: "multiple-E-RAB-ID-instances",
+        32: "encryption-and-or-integrity-protection-algorithms-not-supported",
+        33: "s1-intra-system-handover-triggered", 34: "s1-inter-system-handover-triggered",
+        35: "x2-handover-triggered", 36: "redirection-towards-1xRTT",
+        37: "not-supported-QCI-value", 38: "invalid-CSG-Id"}
+
+s1ap_Cause_vals = {0: "radioNetwork",
+        1: "transport",
+        2: "nas",
+        3: "protocol",
+        4: "misc"}
 
 class S1apProcedureCode(Enum):
     AUTH_REQUEST = 82
@@ -161,9 +186,10 @@ def paging(pkt):
 def ue_context_release_request(pkt):
     enb_ue = int(pkt.s1ap.enb_ue_s1ap_id)
     mme_ue = int(pkt.s1ap.mme_ue_s1ap_id)
-    print("[%d: %d] UE Context Release Request" % (enb_ue, mme_ue))
     if "radionetwork" in pkt.s1ap.field_names:
-        print("Cause {0}.{1}".format(pkt.s1ap.radionetwork, pkt.s1ap.cause))
+        radioNetwork = int(pkt.s1ap.radionetwork)
+        cause = int(pkt.s1ap.cause)
+        print("[{0}: {1}] UE Context Release Request --> {2} {3}".format(enb_ue, mme_ue, s1ap_Cause_vals[cause], s1ap_CauseRadioNetwork_vals[radioNetwork]))
     else:
         print(pkt.s1ap.field_names)
 
