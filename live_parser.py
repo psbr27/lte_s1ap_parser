@@ -6,6 +6,7 @@ from multiprocessing import Process
 import socket
 import sys
 import os
+from datetime import datetime
 
 s1ap_procedures = {17: "s1_setup", 12: "initial_ue_message", 11: "dl_nas", 13: "ul_nas",
         9: "initial_context_setup", 22: "ue_cap_ind", 23: "ue_context_release", 10: "paging", 18: "ue_context_release_request"}
@@ -94,32 +95,18 @@ def s1_setup(pkt):
 
 
 def initial_ue_message(pkt):
-    global ue_dct
-    global EmmFSM
-    global EcmFSM
-
-    enb_ue_id = int(pkt.s1ap.enb_ue_s1ap_id)
-    rrc_cause = pkt.s1ap.rrc_establishment_cause
-    ue_imsi = pkt.s1ap.e212_imsi
-
-    emm_machine = EmmFSM()
-    ecm_machine = EcmFSM()
-
-    tmp_dct = {}
-
-    #ue_dct[ue_imsi] = UECb(ue_imsi, enb_ue_id, emm_machine, ecm_machine)
-    tmp_dct['imsi'] = ue_imsi
-    tmp_dct['enb_ue_s1ap_id'] = enb_ue_id
-    tmp_dct['rrc_cause'] = rrc_cause
-    tmp_dct['ecm_state'] = ecm_machine.current_state
-    tmp_dct['emm_state'] = emm_machine.current_state
-
-    ue_dct[ue_imsi] = tmp_dct
-
-    print("[%d : %s] InitialUEMessage, Attach Request" %(enb_ue_id, ue_imsi))
-    print(ue_dct)
+    org_list = pkt.s1ap.field_names
+    new_list = list(filter(None, org_list))
+    if "s_tmsi_element" in new_list:
+        print("{0} Initial UE Message Cause: {1} MCC: {2} PlmnId: {3} MMEC: {4} cellId: {5} MTMSI: {6} MNC: {7}".format(pkt.s1ap.enb_ue_s1ap_id, pkt.s1ap.rrc_establishment_cause, pkt.s1ap.e212_mcc, pkt.s1ap.plmnidentity, pkt.s1ap.mmec, pkt.s1ap.cellidentity, pkt.s1ap.m_tmsi, pkt.s1ap.e212_mnc))
+    else:
+        for val in new_list: 
+            cmd = 'pkt.s1ap.' + val
+            print("{0} = {1}".format(val, eval(cmd)))
 
 
+
+    
 def ul_nas(pkt):
     global ue_dct
     global S1apProcedureCode
@@ -204,6 +191,7 @@ def capture_packets(intf):
         chunk_type = int(packet.sctp.chunk_type)
         if chunk_type == 0 or chunk_type == 3:
             try:
+                print("S1AP Procedure Code {0}".format(packet.s1ap.procedurecode))
                 procedure_code = int(packet.s1ap.procedurecode)
                 try:
                     eval(s1ap_procedures[procedure_code])(packet)
