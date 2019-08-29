@@ -7,6 +7,7 @@ import socket
 import sys
 import os
 from datetime import datetime
+import time
 
 s1ap_procedures = {17: "s1_setup", 12: "initial_ue_message", 11: "dl_nas", 13: "ul_nas",
         9: "initial_context_setup", 22: "ue_cap_ind", 23: "ue_context_release", 10: "paging", 18: "ue_context_release_request"}
@@ -49,6 +50,8 @@ class S1apProcedureCode(Enum):
     DETACH_REQUEST = 69
 
 
+
+
 class EmmFSM(StateMachine):
     Off = State('DE-REGISTERED', initial=True)
     Registered = State('REGISTERED')
@@ -74,22 +77,29 @@ class EnodeB(object):
 
 
 class UECb(object):
-    def __init__(self, _imsi, _enb_ue_s1ap_id, ecm_state, emm_state):
+    def __init__(self, _imsi, _enb_ue_s1ap_id):
         self.imsi = _imsi
+        self.m_tmsi = 0
         self.enb_ue_s1ap_id = _enb_ue_s1ap_id
-        self.ecm_state = ecm_state
-        self.emm_state = emm_state
         self.mme_ue_s1ap_id = 0
+        self.emm_state = 0
+        self.ecm_state = 0
+
+def timestamp():
+    ts = time.time()
+    st = datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
+    return st
+
 
 
 def s1_setup(pkt):
     global enb_dct
     s1ap_field_names = pkt.s1ap.field_names 
     if "s1setuprequest_element" in s1ap_field_names:
-        print("[%s] S1 Setup Request" %pkt.ip.src)
+        print("%s [%s] S1 Setup Request" %(timestamp(), pkt.ip.src))
         enb_dct[pkt.s1ap.enodebname] = EnodeB(pkt.s1ap.enodebname, int(pkt.s1ap.enb_id), pkt.s1ap.global_enb_id_element, pkt.ip.src)
     elif "s1setupresponse_element" in s1ap_field_names: 
-        print("S1 Setup Response")
+        print("%s S1 Setup Response" %timestamp())
     else:
         pass
 
@@ -98,11 +108,11 @@ def initial_ue_message(pkt):
     org_list = pkt.s1ap.field_names
     new_list = list(filter(None, org_list))
     if "s_tmsi_element" in new_list:
-        print("{0} Initial UE Message Cause: {1} MCC: {2} PlmnId: {3} MMEC: {4} cellId: {5} MTMSI: {6} MNC: {7}".format(pkt.s1ap.enb_ue_s1ap_id, pkt.s1ap.rrc_establishment_cause, pkt.s1ap.e212_mcc, pkt.s1ap.plmnidentity, pkt.s1ap.mmec, pkt.s1ap.cellidentity, pkt.s1ap.m_tmsi, pkt.s1ap.e212_mnc))
+        print("{8} [{0}] Initial UE Message Cause: {1} MCC: {2} PlmnId: {3} MMEC: {4} cellId: {5} MTMSI: {6} MNC: {7}".format(pkt.s1ap.enb_ue_s1ap_id, pkt.s1ap.rrc_establishment_cause, pkt.s1ap.e212_mcc, pkt.s1ap.plmnidentity, pkt.s1ap.mmec, pkt.s1ap.cellidentity, pkt.s1ap.m_tmsi, pkt.s1ap.e212_mnc, timestamp()))
     else:
         for val in new_list: 
             cmd = 'pkt.s1ap.' + val
-            print("{0} = {1}".format(val, eval(cmd)))
+            print("{2} {0} = {1}".format(val, eval(cmd), timestamp()))
 
 
 
@@ -115,14 +125,16 @@ def ul_nas(pkt):
     nas_msg_emm_type = int(pkt.s1ap.nas_eps_nas_msg_emm_type)
     if S1apProcedureCode.DETACH_REQUEST.value == nas_msg_emm_type:
         detach_type = pkt.s1ap.nas_eps_emm_detach_type_ul
-        print("[%d: %d] Detach Request" % (enb_ue, mme_ue))
+        print("%s [%d: %d] Detach Request" % (timestamp(), enb_ue, mme_ue))
+        print("%s [UE-NAS-STATE] EMM-DEREGISTERED, ECM-IDLE" %timestamp())
     elif S1apProcedureCode.ATTACH_COMPLETE.value == nas_msg_emm_type:
         eps_bearer_id = pkt.s1ap.nas_eps_bearer_id
-        print("[%d: %d] Attach Complete " % (enb_ue, mme_ue))
+        print("%s [%d: %d] Attach Complete " % (timestamp(), enb_ue, mme_ue))
+        print("%s [UE-NAS-STATE] EMM-REGISTERED, ECM-CONNECTED" %timestamp())
     elif S1apProcedureCode.AUTH_RESPONSE.value == nas_msg_emm_type:
-        print("[%d: %d] Authentication Response" % (enb_ue, mme_ue))
+        print("%s [%d: %d] Authentication Response" % (timestamp(), enb_ue, mme_ue))
     elif S1apProcedureCode.SEC_MODE_COMPLETE.value == nas_msg_emm_type:
-        print("[%d: %d] Security Mode Complete" % (enb_ue, mme_ue))
+        print("%s [%d: %d] Security Mode Complete" % (timestamp(), enb_ue, mme_ue))
     else:
         pass
 
@@ -132,39 +144,41 @@ def dl_nas(pkt):
     mme_ue = int(pkt.s1ap.mme_ue_s1ap_id)
     nas_msg_emm_type = int(pkt.s1ap.nas_eps_nas_msg_emm_type)
     if S1apProcedureCode.AUTH_REQUEST.value == nas_msg_emm_type:
-        print("[%d: %d] Authentication Request" % (enb_ue, mme_ue))
+        print("%s [%d: %d] Authentication Request" % (timestamp(), enb_ue, mme_ue))
     elif S1apProcedureCode.SEC_MODE_CMD.value == nas_msg_emm_type:
-        print("[%d: %d] Security Mode Command" % (enb_ue, mme_ue))
+        print("%s [%d: %d] Security Mode Command" % (timestamp(), enb_ue, mme_ue))
     else:
-        print("EMM message not supported --> ", hex(nas_msg_emm_type))
+        print("%s EMM message not supported --> "%(timestamp(), hex(nas_msg_emm_type)))
 
 
 def initial_context_setup(pkt):
     enb_ue = int(pkt.s1ap.enb_ue_s1ap_id)
     mme_ue = int(pkt.s1ap.mme_ue_s1ap_id)
     if 'initialcontextsetuprequest_element' in pkt.s1ap.field_names:
-        print("[%d: %d] Initial Context Setup Request" % (enb_ue, mme_ue))
+        print("%s [%d: %d] Initial Context Setup Request" % (timestamp(), enb_ue, mme_ue))
     else:
-        print("[%d: %d] Initial Context Setup Response" % (enb_ue, mme_ue))
+        print("%s [%d: %d] Initial Context Setup Response" % (timestamp(), enb_ue, mme_ue))
+        print("%s [UE-NAS-STATE] EMM-REGISTERED, ECM-CONNECTED" %timestamp())
 
 
 def ue_cap_ind(pkt):
     enb_ue = int(pkt.s1ap.enb_ue_s1ap_id)
     mme_ue = int(pkt.s1ap.mme_ue_s1ap_id)
-    print("[%d: %d] UE CapabilityInfoIndication, UECapabilityInformation" % (enb_ue, mme_ue))
+    print("%s [%d: %d] UE CapabilityInfoIndication, UECapabilityInformation" % (timestamp(), enb_ue, mme_ue))
 
 
 def ue_context_release(pkt):
     enb_ue = int(pkt.s1ap.enb_ue_s1ap_id)
     mme_ue = int(pkt.s1ap.mme_ue_s1ap_id)
     if 'uecontextreleasecommand_element' in pkt.s1ap.field_names:
-        print("[%d: %d] UE Context Release Command" % (enb_ue, mme_ue))
+        print("%s [%d: %d] UE Context Release Command" % (timestamp(), enb_ue, mme_ue))
     else:
-        print("[%d: %d] UE Context Release Complete" % (enb_ue, mme_ue))
+        print("%s [%d: %d] UE Context Release Complete" % (timestamp(), enb_ue, mme_ue))
+        print("%s [UE-NAS-STATE] EMM-REGISTERED, ECM-IDLE" %timestamp())
 
 def paging(pkt):
-    print("Paging Initiated -->")
-    print("PlmnID: {0}, UeIdIndex: {1}, MCC: {2}, TAC: {3}, MMEC: {4}, S_TMSI: {5}, M_TMSI: {6}, MNC: {7}, UePagingId: {8}".format(pkt.s1ap.plmnidentity, pkt.s1ap.ueidentityindexvalue, pkt.s1ap.e212_mcc, pkt.s1ap.tac, pkt.s1ap.mmec, pkt.s1ap.s_tmsi_element, pkt.s1ap.m_tmsi, pkt.s1ap.e212_mnc, pkt.s1ap.uepagingid))
+    print("%s Paging Initiated -->" %timestamp())
+    print("{8} PlmnID: {0}, UeIdIndex: {1}, MCC: {2}, TAC: {3}, MMEC: {4}, S_TMSI: {5}, M_TMSI: {6}, MNC: {7}, UePagingId: {8}".format(pkt.s1ap.plmnidentity, pkt.s1ap.ueidentityindexvalue, pkt.s1ap.e212_mcc, pkt.s1ap.tac, pkt.s1ap.mmec, pkt.s1ap.s_tmsi_element, pkt.s1ap.m_tmsi, pkt.s1ap.e212_mnc, pkt.s1ap.uepagingid, timestamp()))
     #print(pkt.s1ap.field_names)
 
 
@@ -176,7 +190,7 @@ def ue_context_release_request(pkt):
     if "radionetwork" in pkt.s1ap.field_names:
         radioNetwork = int(pkt.s1ap.radionetwork)
         cause = int(pkt.s1ap.cause)
-        print("[{0}: {1}] UE Context Release Request --> {2} {3}".format(enb_ue, mme_ue, s1ap_Cause_vals[cause], s1ap_CauseRadioNetwork_vals[radioNetwork]))
+        print("{4} [{0}: {1}] UE Context Release Request --> {2} {3}".format(enb_ue, mme_ue, s1ap_Cause_vals[cause], s1ap_CauseRadioNetwork_vals[radioNetwork], timestamp()))
     else:
         print(pkt.s1ap.field_names)
 
@@ -191,7 +205,7 @@ def capture_packets(intf):
         chunk_type = int(packet.sctp.chunk_type)
         if chunk_type == 0 or chunk_type == 3:
             try:
-                print("S1AP Procedure Code {0}".format(packet.s1ap.procedurecode))
+                #print("S1AP Procedure Code {0}".format(packet.s1ap.procedurecode))
                 procedure_code = int(packet.s1ap.procedurecode)
                 try:
                     eval(s1ap_procedures[procedure_code])(packet)
